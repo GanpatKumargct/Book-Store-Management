@@ -1,16 +1,14 @@
 package com.BookStoreManagment.Service;
 
 
-import com.BookStoreManagment.Entity.Book;
-import com.BookStoreManagment.Entity.Order;
-import com.BookStoreManagment.Entity.OrderRequest;
-import com.BookStoreManagment.Entity.User;
+import com.BookStoreManagment.Entity.*;
 import com.BookStoreManagment.Repo.OrderRepo;
 import com.BookStoreManagment.Repo.UserRepo;
 import com.BookStoreManagment.Repo.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -20,7 +18,7 @@ public class OrderManagement {
     @Autowired
     private UserRepo userRepo;          //User
     @Autowired
-    private UserRepository userRepository;   //Book
+    private UserRepository bookRepo;   //Book
     @Autowired
     private OrderRepo orderRepo;
 
@@ -44,13 +42,57 @@ public class OrderManagement {
      Check stock, subtract quantity
      Save order and return confirmation
      */
-    public String placeorder(OrderRequest orderRequest){
-        //1. FInd the User
+    public Order placeorder(OrderRequest request){
+        // 1. User fetch
+        User user = userRepo.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 2. Create empty order
+        Order order = new Order();
+        order.setUser(user);
+        order.setTimestamp(LocalDateTime.now());
+        order.setStatus("PLACED");
+        order.setPayment("PENDING");
+
+        // 3. Prepare order items
+        List<OrderItem> orderItems = new ArrayList<>();
+        double total = 0;
+
+        if (request.getBooks() == null || request.getBooks().isEmpty()) {
+            throw new IllegalArgumentException("Book list cannot be empty.");
+        }
+
+        for (OrderRequest.BookOrderEntry entry : request.getBooks()) {
+            Book book = bookRepo.findById(entry.getBookId())
+                    .orElseThrow(() -> new RuntimeException("Book ID not found: " + entry.getBookId()));
+
+            OrderItem item = new OrderItem();
+            item.setOrder(order);
+            item.setBook(book);
+            item.setQuantity(entry.getQuantity());
+
+            orderItems.add(item);
+            total += book.getPrice() * entry.getQuantity();
+        }
+
+        // 4. Set order details
+        order.setItems(orderItems);
+        order.setTotalPrice(total);
+
+        // 5. Save order (Cascade will save orderItems too)
+        return orderRepo.save(order);
+
+
+
+
+        //yeah pahle wala hai
+       /* //1. FInd the User
         Optional<User> userExist = userRepo.findById(orderRequest.getUserId());
         if (!userExist.isPresent()){
             System.out.println("User doesn't exist");
         }
         User user = userExist.get();
+
 
         //2. Prepare for store order book
         List<Book> orderBook = new ArrayList<>();
@@ -84,7 +126,6 @@ public class OrderManagement {
         //4. Create order list
         Order order = new Order();
         order.setUser(user);
-        order.setBooks(orderBook);
         order.setTotalPrice(totalprice);
         order.setStatus("Pending");
         order.setPayment("unpaid");
@@ -94,7 +135,7 @@ public class OrderManagement {
 
 
         //6. Return Succes
-        return "order place successfully, Total Price "+totalprice+"/ only";
+        return "order place successfully, Total Price "+totalprice+"/ only";*/
     }
 
 
